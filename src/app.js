@@ -6,6 +6,7 @@ const _ = require("lodash");
 const port = process.env.PORT || 4001;
 
 const index = require("./routes/index");
+const utils = require("./utils");
 
 const app = express();
 app.use(index);
@@ -15,46 +16,6 @@ const io = socketIo(server);
 
 const players = [];
 let rooms = 0;
-
-const calculateWinner = (squares) => {
-  const lines = [
-    [0, 1, 2],
-    [3, 4, 5],
-    [6, 7, 8],
-    [0, 3, 6],
-    [1, 4, 7],
-    [2, 5, 8],
-    [0, 4, 8],
-    [2, 4, 6],
-  ];
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const [a, b, c] = lines[i];
-    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return { winner: squares[a], line: lines[i] };
-    }
-  }
-
-  return null;
-};
-
-const emitNextGame = (data, newData, gameScore, player1, player2) => {
-  io.to(data.room).emit('playerTurned', {
-    ...newData,
-    gameScore,
-    player1: {
-      ...player1,
-      nextTurn: !data.player1.nextTurn,
-    },
-    player2: {
-      ...player2,
-      nextTurn: !data.player2.nextTurn,
-    },
-    winner: null,
-    isDraw: false,
-    cells: _.fill(Array(9), null),
-  });
-};
 
 io.on("connection", socket => {
   console.log("New client connected", socket.id);
@@ -125,7 +86,7 @@ io.on("connection", socket => {
     const cells = data.cells;
     cells[data.cell] = data.icon;
 
-    const winner = calculateWinner(cells);
+    const winner = utils.calculateWinner(cells);
 
     const isDraw = winner ? false : cells.every(line => !!line);
 
@@ -159,7 +120,7 @@ io.on("connection", socket => {
         };
 
         io.to(data.room).emit('winner', gameScore);
-        emitNextGame(data, newData, gameScore, player1, player2);
+        utils.emitNextGame(data, newData, gameScore, player1, player2, io);
       }, 2500);
     }
 
@@ -171,7 +132,7 @@ io.on("connection", socket => {
         };
 
         io.to(data.room).emit('winner', gameScore);
-        emitNextGame(data, newData, gameScore, player1, player2);
+        utils.emitNextGame(data, newData, gameScore, player1, player2, io);
       }, 2500);
     }
   });
